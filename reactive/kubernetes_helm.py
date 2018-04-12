@@ -63,10 +63,6 @@ def install_kubernetes_helm():
     tiller_config_path = charm_dir() + '/files/tiller-service.yaml'
     if resource_exists_by_file(tiller_config_path):
         tiller_service = get_resource_by_file(tiller_config_path)
-        if not tiller_service:
-            log('Failed to fetch tiller service info')
-            status_set('blocked', 'Failed to fetch tiller service info')
-            return
     else:
         tiller_service = create_resource_by_file(tiller_config_path)
     if not tiller_service:
