@@ -1,0 +1,5 @@
+includes: ['layer:basic',
+           'layer:leadership',
+           'layer:kubernetes-deployer',
+           'interface:kubernetes-helm',]
+repo: git@github.com:tengu-team/layer-kubernetes-helm.git

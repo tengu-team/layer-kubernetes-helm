@@ -1,0 +1,10 @@
+name: kubernetes-helm
+summary: Installs Kubernetes Helm
+maintainer: Sander Borny <sander.borny@ugent.be>
+description: |
+  Installs Kubernetes Helm
+tags:
+  - misc
+provides:
+  helm:
+    interface: kubernetes-helm
