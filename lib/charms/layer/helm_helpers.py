@@ -31,8 +31,8 @@ def install_release(chart_name, repo, namespace):
         namespace (str)
     Returns:
         {
-            'name': Name of the helm release,
-            'status': Status of the installation 
+            'release': Name of the helm release,
+            'status': Status of the installation
         }
     """
     chart_path = from_repo(repo, chart_name)
@@ -42,14 +42,14 @@ def install_release(chart_name, repo, namespace):
             'type': 'directory',
             'location': chart_path,
         },
-    })    
+    })
     tiller = get_tiller()
     response = tiller.install_release(chart.get_helm_chart(),
                                       dry_run=False,
                                       namespace=namespace)
     status_code = response.release.info.status.code
     return {
-        'name': response.release.name,
+        'release': response.release.name,
         'status': response.release.info.status.Code.Name(status_code),
     }
 
@@ -62,7 +62,7 @@ def status_release(release):
         release (str): name of the release
     Returns:
         {
-            'name': Name of the helm release,
+            'release': Name of the helm release,
             'status': Status of the installation (ex. DEPLOYED)
         }
     """
@@ -70,7 +70,7 @@ def status_release(release):
     response = tiller.get_release_status(name=release)
     status_code = response.info.status.code
     return {
-        'name': release,
+        'release': release,
         'status': response.info.status.Code.Name(status_code),
     }
 
@@ -83,7 +83,7 @@ def uninstall_release(release):
         release (str): name of the release
     Returns:
         {
-            'name': Name of the helm release,
+            'release': Name of the helm release,
             'status': Status of the installation (ex. DEPLOYED)
         }
     """
@@ -91,6 +91,6 @@ def uninstall_release(release):
     response = tiller.uninstall_release(release=release)
     status_code = response.release.info.status.code
     return {
-        'name': release,
+        'release': release,
         'status': response.release.info.status.Code.Name(status_code),
     }
