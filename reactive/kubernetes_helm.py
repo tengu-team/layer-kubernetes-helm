@@ -130,10 +130,10 @@ def helm_requested():
             if (unit in previous_requests
                 and chart_request['name'] in previous_requests[unit]):
                 # Add wanted release to live
-                live[unit][chart_request['name']] = previous_requests[unit][chart_request['name']]
+                live[unit][chart_request['release']] = previous_requests[unit][chart_request['release']]
                 # Remove wanted release from previous_requests,
-                # so only non wanted releases remain for easy deletion        
-                del previous_requests[unit][chart_requests[unit]['name']]
+                # so only non wanted releases remain for easy deletion  
+                del previous_requests[unit][chart_request['name']]
         else:
             # Install new chart requests and add them to live
             for chart_request in chart_requests[unit]:
@@ -141,7 +141,7 @@ def helm_requested():
                     release = install_release(chart_request['name'],
                                             chart_request['repo'],
                                             namespace)
-                    live[unit][chart_request['name']] = release
+                    live[unit][chart_request['release']] = release
     # Uninstall unwanted charts, those remaining in previous_requests
     for unit in previous_requests:
         for chart_name in previous_requests[unit]:
@@ -161,5 +161,5 @@ def update_release_info(requests):
     for unit in requests:
         for chart in requests[unit]:
             release = requests[unit][chart]['release']
-            updated[unit]['status'] = status_release(release)
+            updated[unit][chart]['status'] = status_release(release)['status']
     return updated

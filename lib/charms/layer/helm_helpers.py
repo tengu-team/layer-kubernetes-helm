@@ -68,10 +68,10 @@ def status_release(release):
     """
     tiller = get_tiller()
     response = tiller.get_release_status(name=release)
-    status_code = response.release.info.status.code
+    status_code = response.info.status.code
     return {
         'name': release,
-        'status': response.release.info.status.Code.Name(status_code),
+        'status': response.info.status.Code.Name(status_code),
     }
 
 
