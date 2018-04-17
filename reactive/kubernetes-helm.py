@@ -25,7 +25,7 @@ from charms.layer.k8shelpers import (
     resource_exists_by_file,
     get_resource_by_file,
 )
-from charms.layer.helm_helpers import (
+from charms.layer.kubernetes_helm import (
     install_release,
     uninstall_release,
     status_release,
