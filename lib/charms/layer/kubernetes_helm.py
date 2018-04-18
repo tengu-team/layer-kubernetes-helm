@@ -63,7 +63,8 @@ def status_release(release):
     Returns:
         {
             'release': Name of the helm release,
-            'status': Status of the installation (ex. DEPLOYED)
+            'status': Status of the installation (ex. DEPLOYED),
+            'resources': Human readable helm resources output.
         }
     """
     tiller = get_tiller()
@@ -72,6 +73,7 @@ def status_release(release):
     return {
         'release': release,
         'status': response.info.status.Code.Name(status_code),
+        'resources': response.info.status.resources,
     }
 
 

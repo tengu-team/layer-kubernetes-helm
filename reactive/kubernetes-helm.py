@@ -24,6 +24,7 @@ from charms.layer.k8shelpers import (
     create_resource_by_file,
     resource_exists_by_file,
     get_resource_by_file,
+    get_resource_by_name_type,
 )
 from charms.layer.kubernetes_helm import (
     install_release,
@@ -36,8 +37,8 @@ os.environ['PATH'] += os.pathsep + os.path.join(os.sep, 'snap', 'bin')
 conf = config()
 
 
-# TODO should wait until k8s is ready
-@when('leadership.is_leader')
+@when('leadership.is_leader',
+      'kubernetes.ready')
 @when_not('kubernetes-helm.installed')
 def install_kubernetes_helm():
     # Install Helm client if needed
@@ -112,10 +113,12 @@ def helm_requested():
             'chart_name1': {
                 'release': 'release_name1',
                 'status': 'DEPLOYED',
+                'resources': [],
             }
             'chart_name2': {
                 'release': 'release_name2',
                 'status': 'DEPLOYED',
+                'resources': [],
             }
         }
     }
@@ -144,6 +147,7 @@ def helm_requested():
                                             chart_request['repo'],
                                             namespace)
                     live[unit][chart_request['name']] = release
+                    # TODO update resources kubectl output according to live
     # Uninstall unwanted charts, those remaining in previous_requests
     for unit in previous_requests:
         for chart_name in previous_requests[unit]:
@@ -163,5 +167,44 @@ def update_release_info(requests):
     for unit in requests:
         for chart in requests[unit]:
             release = requests[unit][chart]['release']
-            updated[unit][chart]['status'] = status_release(release)['status']
+            release_status = status_release(release)
+            updated[unit][chart]['status'] = release_status['status']
+            updated[unit][chart]['resources'] = extract_resources(release_status['resources'])
     return updated
+
+
+def extract_resources(resource_str):
+    """
+    Extract resource types and names from resource_str and 
+    return the kubectl description.
+    """
+    index = None
+    resource_type = ''
+    resource_name = ''
+
+    resources = {}
+
+    for line in resource_str.split('\n'):
+        if line.startswith('==>'):
+            resource_type = line.split()[1].split('/')[1].lower().split('(')[0]
+        elif resource_type and index == None:
+            index = line.split().index('NAME')
+        elif index is not None:
+            resource_name = line.split()[index]
+        if resource_type and resource_name:
+            if resource_type not in resources:
+                resources[resource_type] = []
+            resources[resource_type].append(resource_name)
+            resource_type = ''
+            resource_name = ''
+            index = None
+
+    ret = []
+    for resource_type in resources:
+        for name in resources[resource_type]:
+            resource = get_resource_by_name_type(name,
+                        conf.get('namespace', 'default'),
+                        resource_type)
+            if resource:
+                ret.append(resource)
+    return ret
