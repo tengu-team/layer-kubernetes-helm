@@ -147,11 +147,12 @@ def helm_requested():
                                             chart_request['repo'],
                                             namespace)
                     live[unit][chart_request['name']] = release
-                    # TODO update resources kubectl output according to live
     # Uninstall unwanted charts, those remaining in previous_requests
     for unit in previous_requests:
         for chart_name in previous_requests[unit]:
             uninstall_release(previous_requests[unit][chart_name]['release'])
+    # Update live to get latest resource info from newly created resources
+    live = update_release_info(live)
     # Save the live update for next invocation
     unitdata.kv().set('live-releases', live)
     # Return a status update to connected units
