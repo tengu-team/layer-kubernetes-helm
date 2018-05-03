@@ -72,7 +72,7 @@ def install_kubernetes_helm():
         status_set('blocked', 'Failed to create tiller service')
         return
     tiller_nodeport = tiller_service['spec']['ports'][0]['nodePort']
-    unitdata.kv().set('tiller-service', get_worker_node_ips()[0] + ':' + str(tiller_nodeport))   
+    unitdata.kv().set('tiller-service', get_worker_node_ips()[0] + ':' + str(tiller_nodeport)) 
     # Install pyhelm lib if not installed yet
     if not pkgutil.find_loader('pyhelm'):
         try:
@@ -116,9 +116,7 @@ def helm_requested():
                 'resources': [],
             }
             'chart_name2': {
-                'release': 'release_name2',
-                'status': 'DEPLOYED',
-                'resources': [],
+                'Error': 'Helm repository unreachable.',
             }
         }
     }
@@ -130,27 +128,9 @@ def helm_requested():
     live = {}
     for unit in chart_requests.keys():
         live[unit] = {}
-        # Check if request already installed
-        for chart_request in chart_requests[unit]:
-            if (unit in previous_requests
-                and chart_request['name'] in previous_requests[unit]):
-                # Add wanted release to live
-                live[unit][chart_request['name']] = previous_requests[unit][chart_request['name']]
-                # Remove wanted release from previous_requests,
-                # so only non wanted releases remain for easy deletion
-                del previous_requests[unit][chart_request['name']]
-        else:
-            # Install new chart requests and add them to live
-            for chart_request in chart_requests[unit]:
-                if chart_request['name'] not in live[unit]:
-                    release = install_release(chart_request['name'],
-                                            chart_request['repo'],
-                                            namespace)
-                    live[unit][chart_request['name']] = release
-    # Uninstall unwanted charts, those remaining in previous_requests
-    for unit in previous_requests:
-        for chart_name in previous_requests[unit]:
-            uninstall_release(previous_requests[unit][chart_name]['release'])
+    remove_installed_requests(chart_requests, previous_requests, live)
+    install_requests(chart_requests, previous_requests, live, namespace)
+    uninstall_requests(previous_requests)
     # Update live to get latest resource info from newly created resources
     live = update_release_info(live)
     # Save the live update for next invocation
@@ -167,10 +147,17 @@ def update_release_info(requests):
     updated = requests
     for unit in requests:
         for chart in requests[unit]:
-            release = requests[unit][chart]['release']
-            release_status = status_release(release)
-            updated[unit][chart]['status'] = release_status['status']
-            updated[unit][chart]['resources'] = extract_resources(release_status['resources'])
+            if 'release' in requests[unit][chart]:
+                release = requests[unit][chart]['release']
+                release_status = status_release(release)
+                if release_status:
+                    updated[unit][chart]['status'] = release_status['status']
+                    updated[unit][chart]['resources'] = \
+                        extract_resources(release_status['resources'])
+                else: 
+                    # This means that a chart has been uninstalled manually
+                    # Remove from the view so it can be reinstalled if needed
+                    del updated[unit][chart]
     return updated
 
 
@@ -209,3 +196,47 @@ def extract_resources(resource_str):
             if resource:
                 ret.append(resource)
     return ret
+
+
+def remove_installed_requests(current_requests, previous_requests, live):
+    """
+    Remove requests from previous_requests if they are installed.
+    A request is installed if it has a release name.
+    """
+    for unit in current_requests.keys():
+        for chart_request in current_requests[unit]:
+            if (unit in previous_requests
+                and chart_request['name'] in previous_requests[unit]
+                and 'release' in previous_requests[unit]):
+                # Add wanted release to live
+                live[unit][chart_request['name']] = \
+                    previous_requests[unit][chart_request['name']]
+                # Remove wanted release from previous_requests,
+                # so only non wanted releases remain for easy deletion
+                del previous_requests[unit][chart_request['name']]
+
+
+def install_requests(current_requests, previous_requests, live, namespace):
+    """
+    Install all new requests or requests which do not have a release name.
+    This will retry to install all failed install requests.
+    """
+    # Install new chart requests and add them to live
+    # Retry errored requests
+    for unit in current_requests.keys():
+        for chart_request in current_requests[unit]:
+            if (unit not in previous_requests
+                or 'release' not in previous_requests[unit]):
+                release = install_release(chart_request['name'],
+                                        chart_request['repo'],
+                                        namespace)
+                live[unit][chart_request['name']] = release
+
+
+def uninstall_requests(previous_requests):
+    """
+    Uninstall all releases which are present in previous_requests.
+    """
+    for unit in previous_requests:
+        for chart_name in previous_requests[unit]:
+            uninstall_release(previous_requests[unit][chart_name]['release'])

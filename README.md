@@ -6,6 +6,7 @@ Provides a way to deploy [Helm charts](https://helm.sh/) to a Kubernetes cluster
 ## Caveats
 
 - Waiting on [issue](https://github.com/juju-solutions/charms.reactive/issues/170) to fix deletion of installed charts.
+- The returned status will not wait until all resources are ready and will not resend a status update until the requested charts installs changes.
 
 
 
