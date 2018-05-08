@@ -1,6 +1,7 @@
 import os
 import json
 import wget
+import copy
 import pkgutil
 from shutil import which
 from subprocess import check_call, check_output, CalledProcessError
@@ -75,16 +76,19 @@ def install_kubernetes_helm():
     unitdata.kv().set('tiller-service', get_worker_node_ips()[0] + ':' + str(tiller_nodeport)) 
     # Install pyhelm lib if not installed yet
     if not pkgutil.find_loader('pyhelm'):
+        wd = os.getcwd()        
         try:
             check_call(['git',
                         'clone',
                         'https://github.com/tengu-team/pyhelm.git',
                         '/home/ubuntu/pyhelm'])
-            check_call(['python3', '/home/ubuntu/pyhelm/setup.py', 'install'])
+            os.chdir('/home/ubuntu/pyhelm')
+            check_call(['python3', 'setup.py', 'install'])
         except CalledProcessError as e:
             log(e)
             status_set('blocked', 'Failed to install pyhelm library')
             return
+        os.chdir(wd)
     set_flag('kubernetes-helm.installed')
 
 
@@ -137,14 +141,14 @@ def helm_requested():
     unitdata.kv().set('live-releases', live)
     # Return a status update to connected units
     endpoint.send_status(live)
-    clear_flag('endpoint.helm.new-chart-requests')
+    clear_flag('endpoint.helm.new-chart-requests') # TODO bij error zal de methode niet meer proberen uit te voeren, misschien is dit goed?
 
 
 def update_release_info(requests):
     """
     Update the status of helm releases.
     """
-    updated = requests
+    updated = copy.deepcopy(requests)
     for unit in requests:
         for chart in requests[unit]:
             if 'release' in requests[unit][chart]:
@@ -240,3 +244,20 @@ def uninstall_requests(previous_requests):
     for unit in previous_requests:
         for chart_name in previous_requests[unit]:
             uninstall_release(previous_requests[unit][chart_name]['release'])
+
+
+@when('endpoint.helm.status-update',
+      'kubernetes-helm.installed',
+      'leadership.is_leader')
+def update_status_subscribers():
+    endpoint = endpoint_from_flag('endpoint.helm.status-update')
+    subs = endpoint.get_status_update_subscribers()
+    if not subs:
+        return
+    previous_requests = unitdata.kv().get('live-releases', {})
+    needed_requests = previous_requests
+    for unit in previous_requests:
+        if unit not in subs:
+            del needed_requests[unit]
+    live_subs = update_release_info(needed_requests)
+    endpoint.send_status(live_subs)
