@@ -2,8 +2,8 @@ import os
 import json
 import wget
 import copy
-import pkgutil
 from shutil import which
+from importlib import util as importutil
 from subprocess import check_call, check_output, CalledProcessError
 from charmhelpers.core import unitdata
 from charmhelpers.core.hookenv import (
@@ -74,14 +74,15 @@ def install_kubernetes_helm():
         return
     tiller_nodeport = tiller_service['spec']['ports'][0]['nodePort']
     unitdata.kv().set('tiller-service', get_worker_node_ips()[0] + ':' + str(tiller_nodeport)) 
-    # Install pyhelm lib if not installed yet
-    if not pkgutil.find_loader('pyhelm'):
-        wd = os.getcwd()        
+    # Install pyhelm lib if not installed yet (in this venv)
+    if not importutil.find_spec('pyhelm'):
+        wd = os.getcwd()
         try:
-            check_call(['git',
-                        'clone',
-                        'https://github.com/tengu-team/pyhelm.git',
-                        '/home/ubuntu/pyhelm'])
+            if not os.path.exists('/home/ubuntu/pyhelm'):
+                check_call(['git',
+                            'clone',
+                            'https://github.com/tengu-team/pyhelm.git',
+                            '/home/ubuntu/pyhelm'])
             os.chdir('/home/ubuntu/pyhelm')
             check_call(['python3', 'setup.py', 'install'])
         except CalledProcessError as e:
